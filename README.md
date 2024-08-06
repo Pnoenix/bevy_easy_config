@@ -52,6 +52,11 @@ Until the asset is loaded, when accessing the Settings resource, you will get th
 As far as I know there isn't really a good way around this, so you will have to work with the default values for the
 first few ticks, until the asset is loaded. When the asset is loaded, it will automatically replace the default values.
 
+## Compatible Bevy versions
+| `bevy_common_assets`  | `bevy` |
+|:----------------------|:-------|
+| `0.1.0`               | `0.14` |
+
 ## License
 Dual-licensed under either:
 
