@@ -7,6 +7,7 @@ description = "A Bevy plugin that allows you to easily define and instantiate co
 homepage = "https://github.com/Pnoenix/bevy_easy_config"
 repository = "https://github.com/Pnoenix/bevy_easy_config"
 readme = "./README.md"
+keywords = ["bevy", "gamedev", "config"]
 
 
 [dependencies]
