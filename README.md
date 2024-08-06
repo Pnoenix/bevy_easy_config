@@ -1,3 +1,7 @@
+[![crates.io](https://img.shields.io/crates/v/bevy_easy_config.svg)](https://crates.io/crates/bevy_easy_config)
+[![license](https://img.shields.io/crates/l/bevy_easy_config)](https://github.com/Pnoenix/bevy_easy_config#license)
+
+
 # Bevy Easy Config
 Bevy Easy Config is a plugin that allows you to load config files easily and instantiate them as a resource.
 
