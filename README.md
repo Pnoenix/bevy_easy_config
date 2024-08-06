@@ -53,9 +53,10 @@ As far as I know there isn't really a good way around this, so you will have to 
 first few ticks, until the asset is loaded. When the asset is loaded, it will automatically replace the default values.
 
 ## Compatible Bevy versions
-| `bevy_common_assets`  | `bevy` |
-|:----------------------|:-------|
-| `0.1.0`               | `0.14` |
+| `bevy_easy_config`    | `bevy`   |
+|:----------------------|:---------|
+| `0.1.0`               | `0.14`   |
+| `unsupported`         | `< 0.14` |
 
 ## License
 Dual-licensed under either:
