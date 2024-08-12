@@ -8,7 +8,7 @@ use bevy::{
     },
 };
 use std::{
-    path::Path,
+    path::PathBuf,
     marker::PhantomData
 };
 use ron::de::from_bytes;
@@ -17,14 +17,21 @@ use thiserror::Error;
 
 #[derive(Resource)]
 // This struct hold the handle to the asset so it doesn't disappear
-// It also transfers the path term from the new function on the plugin
-// to the function where the asset is loaded
-pub struct ConfigFileHolder<A> 
+struct ConfigFileHandle<A> 
 where
     for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone
 {
-    path: &'static str,
     handle: Option<Handle<A>>,
+    _marker: PhantomData<A>
+}
+
+
+#[derive(Resource)]
+struct ConfigFileSettings<A> 
+where
+    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone
+{
+    path: PathBuf,
     _marker: PhantomData<A>
 }
 
@@ -36,7 +43,7 @@ pub struct EasyConfigPlugin<A>
 where
     for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone
 {
-    path: &'static str,
+    path: PathBuf,
     _marker: PhantomData<A>
 }
 
@@ -45,9 +52,9 @@ impl<A> EasyConfigPlugin<A>
 where
     for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone
 {
-    pub fn new(path: &'static str) -> Self {
+    pub fn new(path: impl Into<PathBuf>) -> Self {
         Self {
-            path: path,
+            path: path.into(),
             _marker: PhantomData
         }
     }
@@ -60,7 +67,7 @@ where
 // Which can be used from anywhere to get the path 
 impl<A> Plugin for EasyConfigPlugin<A>
 where
-    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone
+    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone,
 {
     fn build(&self, app: &mut App) {
         app
@@ -68,38 +75,41 @@ where
             .register_asset_loader(ConfigFileAssetLoader::<A> {
                 _marker: PhantomData
             })
-            .insert_resource(ConfigFileHolder::<A> {
-                path: self.path,
+            .add_systems(Update, update_resource::<A>)
+            .insert_resource(ConfigFileHandle::<A> {
                 handle: None,
                 _marker: PhantomData
             })
-            // .init_resource::<A>()
-            .add_systems(PreStartup, add_asset_to_config_file_holder::<A>)
-            .add_systems(Update, update_resource::<A>);
+            .insert_resource(ConfigFileSettings::<A> {
+                path: self.path.clone(),
+                _marker: PhantomData
+            })
+            .add_systems(PreStartup, load_config_file::<A>);            
     }
 }
 
 
 // Gets the handle and stores it in ConfigFileHolder
-fn add_asset_to_config_file_holder<A>(
-    mut config_file_holder: ResMut<ConfigFileHolder<A>>,
+fn load_config_file<A>(
+    mut config_file_handle: ResMut<ConfigFileHandle<A>>,
     mut commands: Commands,
+    config_file_settings: Res<ConfigFileSettings<A>>,
     asset_server: Res<AssetServer>,
 ) 
 where
     for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone
 {
-    let base_path = bevy::asset::io::file::FileAssetReader::get_base_path();
-    let assets_path = base_path.join(Path::new("assets"));
-    let config_path = assets_path.join(Path::new(config_file_holder.path));
+    let mut path = bevy::asset::io::file::FileAssetReader::get_base_path();
+    path.push("assets");
+    path.push(config_file_settings.path.as_path());
 
-    let config_string = std::fs::read_to_string(config_path.as_path()).unwrap();
+    let config_string = std::fs::read_to_string(path.as_path()).unwrap();
     let config_file: A = ron::from_str(&config_string).unwrap();
 
-    let config_file_handle: Handle<A> = asset_server.load(config_file_holder.path);
-    config_file_holder.handle = Some(config_file_handle.clone());
-
     commands.insert_resource(config_file);
+    
+    let handle: Handle<A> = asset_server.load(path.clone());
+    config_file_handle.handle = Some(handle.clone());
 }
 
 
@@ -115,16 +125,13 @@ where
     for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone
 {
     for ev in ev_asset.read() {
-        println!("{:#?}", ev);
         match ev {
             AssetEvent::Modified { id } => {
                 let config_file = config_files.get(id.clone());
 
-                println!("ahg");
-
                 match config_file {
                     Some(config_file) => commands.insert_resource(config_file.clone()),
-                    None => println!("Oh nosies 2")
+                    None => {}
                 }
             },
             _ => {}

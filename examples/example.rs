@@ -22,7 +22,6 @@ fn main() {
     - Resource, 
     - Clone,
     - TypePath
-    All traits except default can simply be implemented with #[derive()] 
 */
 #[derive(Deserialize, Asset, Resource, Clone, TypePath)]
 struct Settings {
