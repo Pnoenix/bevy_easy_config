@@ -6,23 +6,13 @@
 Bevy Easy Config is a plugin that allows you to load config files easily and instantiate them as a resource.
 
 ## Usage
-First define the struct that you would like to load, and impl/derive the relevant traits:
+First define the struct that you would like to load, and derive the relevant traits:
 ```rust
 // Define the struct to load
 #[derive(Deserialize, Asset, Resource, Clone, TypePath)]
 struct Settings {
     some_keybind: KeyCode
 }
-
-// Default also needs to be implemented
-impl Default for Settings {
-    fn default() -> Self {
-        Self {
-            some_keybind: KeyCode::KeyW
-        }
-    }
-}
-
 ```
 The add it to your app:
 ```rust
@@ -34,6 +24,7 @@ fn main() {
             DefaultPlugins,
             EasyConfigPlugin::<Settings>::new("settings.ron"),
         ))
+        .add_systems(Update, some_random_function)
         .run();
 }
 ```
@@ -46,11 +37,6 @@ fn some_random_function(
     // ... Your awesome code here
 }
 ```
-
-## Notices
-Until the asset is loaded, when accessing the Settings resource, you will get the values from `Settings::default()`.
-As far as I know there isn't really a good way around this, so you will have to work with the default values for the
-first few ticks, until the asset is loaded. When the asset is loaded, it will automatically replace the default values.
 
 ## Compatible Bevy versions
 | `bevy_easy_config`    | `bevy`   |

@@ -96,7 +96,7 @@ where
     let config_string = std::fs::read_to_string(config_path.as_path()).unwrap();
     let config_file: A = ron::from_str(&config_string).unwrap();
 
-    let config_file_handle: Handle<A> = asset_server.add(config_file.clone());
+    let config_file_handle: Handle<A> = asset_server.load(config_file_holder.path);
     config_file_holder.handle = Some(config_file_handle.clone());
 
     commands.insert_resource(config_file);
