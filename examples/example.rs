@@ -10,6 +10,7 @@ fn main() {
             // Adds the settings struct as a resource, and loads it from "assets/settings.ron"
             EasyConfigPlugin::<Settings>::new("settings.ron")
         ))
+        .add_systems(Startup, print_config_key)
         .add_systems(Update, print_on_keypress)
         .run();
 }
@@ -21,29 +22,17 @@ fn main() {
     - Resource, 
     - Clone,
     - TypePath
-    and it must also implement Default.
-    All traits except default can simply be implemented with #[derive()] 
 */
 #[derive(Deserialize, Asset, Resource, Clone, TypePath)]
 struct Settings {
     action_keybind: KeyCode
 }
 
-/*
-This is the default state that the struct will be loaded in.
 
-Until the Asset part of the struct is loaded properly,
-the struct will have the values that are implemented in default.
-
-When the asset is finished loading, the values from whatever file
-that is being loaded will replace the values from 'Default'
-*/
-impl Default for Settings {
-    fn default() -> Self {
-        Self {
-            action_keybind: KeyCode::Space
-        }
-    }
+fn print_config_key(
+    settings: Res<Settings>
+) {
+    println!("Settings loaded; current key: {:#?}", settings.action_keybind);
 }
 
 

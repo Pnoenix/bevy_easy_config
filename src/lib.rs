@@ -1,27 +1,37 @@
 use bevy::{
     asset::{Asset, Assets, AssetApp, AssetEvent, AssetLoader, AsyncReadExt, AssetServer, LoadContext, io::Reader, Handle},
-    app::{Startup, Update, App, Plugin},
+    app::{PreStartup, Update, App, Plugin},
     ecs::{
         system::{Commands, Resource},
         change_detection::{Res, ResMut},
         event::EventReader
     },
 };
-use std::marker::PhantomData;
+use std::{
+    path::PathBuf,
+    marker::PhantomData
+};
 use ron::de::from_bytes;
 use thiserror::Error;
 
 
 #[derive(Resource)]
 // This struct hold the handle to the asset so it doesn't disappear
-// It also transfers the path term from the new function on the plugin
-// to the function where the asset is loaded
-pub struct ConfigFileHolder<A> 
+struct ConfigFileHandle<A> 
 where
-    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone + Default
+    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone
 {
-    path: &'static str,
     handle: Option<Handle<A>>,
+    _marker: PhantomData<A>
+}
+
+
+#[derive(Resource)]
+struct ConfigFileSettings<A> 
+where
+    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone
+{
+    path: PathBuf,
     _marker: PhantomData<A>
 }
 
@@ -31,20 +41,20 @@ where
 // which means that when you call ::new() you can enter data such as the path
 pub struct EasyConfigPlugin<A> 
 where
-    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone + Default
+    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone
 {
-    path: &'static str,
+    path: PathBuf,
     _marker: PhantomData<A>
 }
 
 
 impl<A> EasyConfigPlugin<A> 
 where
-    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone + Default
+    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone
 {
-    pub fn new(path: &'static str) -> Self {
+    pub fn new(path: impl Into<PathBuf>) -> Self {
         Self {
-            path: path,
+            path: path.into(),
             _marker: PhantomData
         }
     }
@@ -57,7 +67,7 @@ where
 // Which can be used from anywhere to get the path 
 impl<A> Plugin for EasyConfigPlugin<A>
 where
-    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone + Default
+    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone,
 {
     fn build(&self, app: &mut App) {
         app
@@ -65,28 +75,41 @@ where
             .register_asset_loader(ConfigFileAssetLoader::<A> {
                 _marker: PhantomData
             })
-            .insert_resource(ConfigFileHolder::<A> {
-                path: self.path,
+            .add_systems(Update, update_resource::<A>)
+            .insert_resource(ConfigFileHandle::<A> {
                 handle: None,
                 _marker: PhantomData
             })
-            .init_resource::<A>()
-            .add_systems(Startup, add_asset_to_config_file_holder::<A>)
-            .add_systems(Update, update_resource::<A>);
+            .insert_resource(ConfigFileSettings::<A> {
+                path: self.path.clone(),
+                _marker: PhantomData
+            })
+            .add_systems(PreStartup, load_config_file::<A>);            
     }
 }
 
 
 // Gets the handle and stores it in ConfigFileHolder
-fn add_asset_to_config_file_holder<A>(
-    mut config_file_holder: ResMut<ConfigFileHolder<A>>,
+fn load_config_file<A>(
+    mut config_file_handle: ResMut<ConfigFileHandle<A>>,
+    mut commands: Commands,
+    config_file_settings: Res<ConfigFileSettings<A>>,
     asset_server: Res<AssetServer>,
 ) 
 where
-    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone + Default
+    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone
 {
-    let config_file_handle: Handle<A> = asset_server.load(config_file_holder.path);
-    config_file_holder.handle = Some(config_file_handle);
+    let mut path = bevy::asset::io::file::FileAssetReader::get_base_path();
+    path.push("assets");
+    path.push(config_file_settings.path.as_path());
+
+    let config_string = std::fs::read_to_string(path.as_path()).unwrap();
+    let config_file: A = ron::from_str(&config_string).unwrap();
+
+    commands.insert_resource(config_file);
+    
+    let handle: Handle<A> = asset_server.load(path.clone());
+    config_file_handle.handle = Some(handle.clone());
 }
 
 
@@ -99,23 +122,16 @@ fn update_resource<A>(
     mut commands: Commands
 ) 
 where
-    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone + Default
+    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone
 {
     for ev in ev_asset.read() {
         match ev {
-            AssetEvent::LoadedWithDependencies { id } => {
-                let config_file = config_files.get(id.clone());
-                match config_file {
-                    Some(config_file) => commands.insert_resource(config_file.clone()),
-                    None => println!("Oh nosies 1")
-                }
-            },
             AssetEvent::Modified { id } => {
                 let config_file = config_files.get(id.clone());
 
                 match config_file {
                     Some(config_file) => commands.insert_resource(config_file.clone()),
-                    None => println!("Oh nosies 2")
+                    None => {}
                 }
             },
             _ => {}
@@ -128,7 +144,7 @@ where
 // Was I 'inspired' by bevy_common_assets... maybe :D (Thank you)
 pub struct ConfigFileAssetLoader<A> 
 where
-    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone + Default
+    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone
 {
     _marker: PhantomData<A>,
 }
@@ -149,7 +165,7 @@ pub enum ConfigFileLoaderError {
 
 impl<A> AssetLoader for ConfigFileAssetLoader<A>
 where
-    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone + Default
+    for<'de> A: serde::Deserialize<'de> + Asset + Resource + Clone
 {
     type Asset = A;
     type Settings = ();
