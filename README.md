@@ -41,7 +41,7 @@ fn some_random_function(
 ## Compatible Bevy versions
 | `bevy_easy_config`    | `bevy`   |
 |:----------------------|:---------|
-| `0.1.0`               | `0.14`   |
+| `0.1.0, 0.2.0`        | `0.14`   |
 | `unsupported`         | `< 0.14` |
 
 ## License
